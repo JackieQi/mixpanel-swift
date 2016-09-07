@@ -45,16 +45,16 @@ class PeopleViewController: UIViewController, UITableViewDelegate, UITableViewDa
 
         switch indexPath.item {
         case 0:
-            let p: Properties = ["a": 1 as AnyObject,
-                                 "b": 2.3 as AnyObject,
-                                 "c": ["4", 5] as AnyObject,
-                                 "d": URL(string:"https://mixpanel.com")! as AnyObject,
+            let p: Properties = ["a": 1,
+                                 "b": 2.3,
+                                 "c": ["4", 5],
+                                 "d": URL(string:"https://mixpanel.com")!,
                                  "e": NSNull(),
-                                 "f": Date() as AnyObject]
+                                 "f": Date()]
             Mixpanel.mainInstance().people.set(properties: p)
             descStr = "Properties: \(p)"
         case 1:
-            Mixpanel.mainInstance().people.set(property: "g", to: "yo" as AnyObject)
+            Mixpanel.mainInstance().people.set(property: "g", to: "yo")
             descStr = "Property key: g, value: yo"
         case 2:
             let p = ["h": "just once"]
@@ -96,12 +96,12 @@ class PeopleViewController: UIViewController, UITableViewDelegate, UITableViewDa
             break
         }
 
-        let vc = self.storyboard!.instantiateViewController(withIdentifier: "ActionCompleteViewController") as! ActionCompleteViewController
+        let vc = storyboard!.instantiateViewController(withIdentifier: "ActionCompleteViewController") as! ActionCompleteViewController
         vc.actionStr = actionStr
         vc.descStr = descStr
         vc.modalTransitionStyle = UIModalTransitionStyle.crossDissolve
         vc.modalPresentationStyle = UIModalPresentationStyle.overFullScreen
-        self.present(vc, animated: true, completion: nil)
+        present(vc, animated: true, completion: nil)
 
     }
 

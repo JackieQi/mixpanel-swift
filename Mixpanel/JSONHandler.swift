@@ -10,7 +10,7 @@ import Foundation
 
 class JSONHandler {
 
-    typealias MPObjectToParse = AnyObject
+    typealias MPObjectToParse = Any
 
     class func encodeAPIData(_ obj: MPObjectToParse) -> String? {
         let data: Data? = serializeJSONObject(obj)
@@ -53,29 +53,29 @@ class JSONHandler {
         case is String, is Int, is UInt, is Double, is Float:
             return obj
 
-        case let obj as Array<AnyObject>:
-            return obj.map() { makeObjectSerializable($0)} as MPObjectToParse
+        case let obj as Array<Any>:
+            return obj.map() { makeObjectSerializable($0) }
 
-        case let obj as Properties:
-            var serializedDict = Properties()
+        case let obj as InternalProperties:
+            var serializedDict = InternalProperties()
             _ = obj.map() { (k, v) in
                 serializedDict[k] =
                     makeObjectSerializable(v) }
-            return serializedDict as MPObjectToParse
+            return serializedDict
 
         case let obj as Date:
             let dateFormatter = DateFormatter()
             dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'"
             dateFormatter.timeZone = TimeZone(abbreviation: "UTC")
             dateFormatter.locale = Locale(identifier: "en_US_POSIX")
-            return dateFormatter.string(from: obj) as MPObjectToParse
+            return dateFormatter.string(from: obj)
 
         case let obj as URL:
-            return obj.absoluteString as MPObjectToParse
+            return obj.absoluteString
 
         default:
             Logger.info(message: "enforcing string on object")
-            return obj.description as MPObjectToParse
+            return String(describing: obj)
         }
     }
 

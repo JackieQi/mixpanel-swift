@@ -9,11 +9,12 @@
 import Foundation
 
 struct ArchivedProperties {
-    let superProperties: Properties
-    let timedEvents: Properties
+    let superProperties: InternalProperties
+    let timedEvents: InternalProperties
     let distinctId: String
     let peopleDistinctId: String?
     let peopleUnidentifiedQueue: Queue
+    let shownNotifications: Set<Int>
 }
 
 class Persistence {
@@ -45,7 +46,7 @@ class Persistence {
         return urlUnwrapped
     }
 
-    class func archive(_ eventsQueue: Queue,
+    class func archive(eventsQueue: Queue,
                        peopleQueue: Queue,
                        properties: ArchivedProperties,
                        token: String) {
@@ -55,24 +56,25 @@ class Persistence {
     }
 
     class func archiveEvents(_ eventsQueue: Queue, token: String) {
-        archiveToFile(.Events, object: eventsQueue as AnyObject, token: token)
+        archiveToFile(.Events, object: eventsQueue, token: token)
     }
 
     class func archivePeople(_ peopleQueue: Queue, token: String) {
-        archiveToFile(.People, object: peopleQueue as AnyObject, token: token)
+        archiveToFile(.People, object: peopleQueue, token: token)
     }
 
     class func archiveProperties(_ properties: ArchivedProperties, token: String) {
-        var p: Properties = Properties()
-        p["distinctId"] = properties.distinctId as AnyObject
-        p["superProperties"] = properties.superProperties as AnyObject
-        p["peopleDistinctId"] = properties.peopleDistinctId as AnyObject
-        p["peopleUnidentifiedQueue"] = properties.peopleUnidentifiedQueue as AnyObject
-        p["timedEvents"] = properties.timedEvents as AnyObject
-        archiveToFile(.Properties, object: p as AnyObject, token: token)
+        var p = InternalProperties()
+        p["distinctId"] = properties.distinctId
+        p["superProperties"] = properties.superProperties
+        p["peopleDistinctId"] = properties.peopleDistinctId
+        p["peopleUnidentifiedQueue"] = properties.peopleUnidentifiedQueue
+        p["timedEvents"] = properties.timedEvents
+        p["shownNotifications"] = properties.shownNotifications
+        archiveToFile(.Properties, object: p, token: token)
     }
 
-    class private func archiveToFile(_ type: ArchiveType, object: AnyObject, token: String) {
+    class private func archiveToFile(_ type: ArchiveType, object: Any, token: String) {
         let filePath = filePathWithType(type, token: token)
         guard let path = filePath else {
             Logger.error(message: "bad file path, cant fetch file")
@@ -86,12 +88,14 @@ class Persistence {
     }
 
     class func unarchive(token: String) -> (eventsQueue: Queue,
-        peopleQueue: Queue,
-        superProperties: Properties,
-        timedEvents: Properties,
-        distinctId: String,
-        peopleDistinctId: String?,
-        peopleUnidentifiedQueue: Queue) {
+                                            peopleQueue: Queue,
+                                            superProperties: InternalProperties,
+                                            timedEvents: InternalProperties,
+                                            distinctId: String,
+                                            peopleDistinctId: String?,
+                                            peopleUnidentifiedQueue: Queue,
+                                            shownNotifications: Set<Int>) {
+
         let eventsQueue = unarchiveEvents(token: token)
         let peopleQueue = unarchivePeople(token: token)
 
@@ -99,7 +103,8 @@ class Persistence {
             timedEvents,
             distinctId,
             peopleDistinctId,
-            peopleUnidentifiedQueue) = unarchiveProperties(token: token)
+            peopleUnidentifiedQueue,
+            shownNotifications) = unarchiveProperties(token: token)
 
         return (eventsQueue,
                 peopleQueue,
@@ -107,11 +112,12 @@ class Persistence {
                 timedEvents,
                 distinctId,
                 peopleDistinctId,
-                peopleUnidentifiedQueue)
+                peopleUnidentifiedQueue,
+                shownNotifications)
     }
 
-    class private func unarchiveWithFilePath(_ filePath: String) -> AnyObject? {
-        let unarchivedData: AnyObject? = NSKeyedUnarchiver.unarchiveObject(withFile: filePath) as AnyObject
+    class private func unarchiveWithFilePath(_ filePath: String) -> Any? {
+        let unarchivedData: Any? = NSKeyedUnarchiver.unarchiveObject(withFile: filePath)
         if unarchivedData == nil {
             do {
                 try FileManager.default.removeItem(atPath: filePath)
@@ -124,34 +130,38 @@ class Persistence {
     }
 
     class private func unarchiveEvents(token: String) -> Queue {
-        return unarchiveWithType(.Events, token: token) as? Queue ?? []
+        let data = unarchiveWithType(.Events, token: token)
+        return data as? Queue ?? []
     }
 
     class private func unarchivePeople(token: String) -> Queue {
         return unarchiveWithType(.People, token: token) as? Queue ?? []
     }
 
-    class private func unarchiveProperties(token: String) -> (Properties, Properties, String, String?, Queue) {
-        let properties = unarchiveWithType(.Properties, token: token) as? Properties
+    class private func unarchiveProperties(token: String) -> (InternalProperties, InternalProperties, String, String?, Queue, Set<Int>) {
+        let properties = unarchiveWithType(.Properties, token: token) as? InternalProperties
         let superProperties =
-            properties?["superProperties"] as? Properties ?? Properties()
+            properties?["superProperties"] as? InternalProperties ?? InternalProperties()
         let timedEvents =
-            properties?["timedEvents"] as? Properties ?? Properties()
+            properties?["timedEvents"] as? InternalProperties ?? InternalProperties()
         let distinctId =
             properties?["distinctId"] as? String ?? ""
         let peopleDistinctId =
             properties?["peopleDistinctId"] as? String ?? nil
         let peopleUnidentifiedQueue =
             properties?["peopleUnidentifiedQueue"] as? Queue ?? Queue()
+        let shownNotifications =
+            properties?["shownNotifications"] as? Set<Int> ?? Set<Int>()
 
         return (superProperties,
                 timedEvents,
                 distinctId,
                 peopleDistinctId,
-                peopleUnidentifiedQueue)
+                peopleUnidentifiedQueue,
+                shownNotifications)
     }
 
-    class private func unarchiveWithType(_ type: ArchiveType, token: String) -> AnyObject? {
+    class private func unarchiveWithType(_ type: ArchiveType, token: String) -> Any? {
         let filePath = filePathWithType(type, token: token)
         guard let path = filePath else {
             Logger.info(message: "bad file path, cant fetch file")

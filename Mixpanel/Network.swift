@@ -12,14 +12,15 @@ import Foundation
 struct BasePath {
     static var MixpanelAPI = "https://api.mixpanel.com"
 
-    static func buildURL(base: String, path: String) -> URL? {
-        guard let url = URL(string: base)?.appendingPathComponent(path) else {
+    static func buildURL(base: String, path: String, queryItems: [URLQueryItem]?) -> URL? {
+        guard let url = URL(string: base) else {
             return nil
         }
-
-        return url
+        var components = URLComponents(url: url, resolvingAgainstBaseURL: true)
+        components?.path = path
+        components?.queryItems = queryItems
+        return components?.url
     }
-
 }
 
 enum Method: String {
@@ -31,6 +32,7 @@ struct Resource<A> {
     let path: String
     let method: Method
     let requestBody: Data?
+    let queryItems: [URLQueryItem]?
     let headers: [String:String]
     let parse: (Data) -> A?
 }
@@ -39,7 +41,7 @@ enum Reason {
     case ParseError
     case NoData
     case NotOKStatusCode(statusCode: Int)
-    case Other(NSError)
+    case Other(Error)
 }
 
 class Network {
@@ -55,7 +57,7 @@ class Network {
         let session = URLSession.shared
         session.dataTask(with: request) { (data, response, error) -> Void in
             guard let httpResponse = response as? HTTPURLResponse else {
-                failure(Reason.Other(error! as NSError), data, response)
+                failure(Reason.Other(error!), data, response)
                 return
             }
             guard httpResponse.statusCode == 200 else {
@@ -76,7 +78,9 @@ class Network {
     }
 
     private class func buildURLRequest<A>(_ base: String, resource: Resource<A>) -> URLRequest? {
-        guard let url = BasePath.buildURL(base: base, path: resource.path) else {
+        guard let url = BasePath.buildURL(base: base,
+                                          path: resource.path,
+                                          queryItems: resource.queryItems) else {
             return nil
         }
 
@@ -92,10 +96,16 @@ class Network {
 
     class func buildResource<A>(path: String,
                              method: Method,
-                             requestBody: Data?,
+                             requestBody: Data? = nil,
+                             queryItems: [URLQueryItem]? = nil,
                              headers: [String: String],
                              parse: @escaping (Data) -> A?) -> Resource<A> {
-        return Resource(path: path, method: method, requestBody: requestBody, headers: headers, parse: parse)
+        return Resource(path: path,
+                        method: method,
+                        requestBody: requestBody,
+                        queryItems: queryItems,
+                        headers: headers,
+                        parse: parse)
     }
 
     class func trackIntegration(apiToken: String, completion: @escaping (Bool) -> ()) {
@@ -103,7 +113,7 @@ class Network {
                                                       "properties": ["token": "85053bf24bba75239b16a601d9387e17",
                                                                      "mp_lib": "swift",
                                                                      "version": "3.0",
-                                                                     "distinct_id": apiToken]]] as AnyObject)
+                                                                     "distinct_id": apiToken]]])
 
         let responseParser: (Data) -> Int? = { data in
             let response = String(data: data, encoding: String.Encoding.utf8)

@@ -9,7 +9,7 @@
 import Foundation
 
 enum PropertyError: Error {
-    case InvalidType(type: AnyObject)
+    case InvalidType(type: Any)
 }
 
 class Assertions {

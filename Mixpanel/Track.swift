@@ -21,30 +21,11 @@ class Track {
         self.apiToken = apiToken
     }
 
-    class func assertPropertyTypes(_ properties: Properties?) {
-        if let properties = properties {
-            for (_, v) in properties {
-                MPAssert(
-                    v is String ||
-                    v is Int ||
-                    v is UInt ||
-                    v is Double ||
-                    v is Float ||
-                    v is [AnyObject] ||
-                    v is [String: AnyObject] ||
-                    v is Date ||
-                    v is URL ||
-                    v is NSNull,
-                "Property values must be of valid type. Got \(type(of: v))")
-            }
-        }
-    }
-
     func track(event: String?,
                properties: Properties? = nil,
                eventsQueue: inout Queue,
-               timedEvents: inout Properties,
-               superProperties: Properties,
+               timedEvents: inout InternalProperties,
+               superProperties: InternalProperties,
                distinctId: String,
                epochInterval: Double) {
         var ev = event
@@ -53,24 +34,24 @@ class Track {
             ev = "mp_event"
         }
 
-        Track.assertPropertyTypes(properties)
+        assertPropertyTypes(properties)
         let epochSeconds = Int(round(epochInterval))
         let eventStartTime = timedEvents[ev!] as? Double
-        var p = Properties()
+        var p = InternalProperties()
         p += AutomaticProperties.properties
-        p["token"] = apiToken as AnyObject
-        p["time"] = epochSeconds as AnyObject
+        p["token"] = apiToken
+        p["time"] = epochSeconds
         if let eventStartTime = eventStartTime {
             timedEvents.removeValue(forKey: ev!)
-            p["$duration"] = Double(String(format: "%.3f", epochInterval - eventStartTime)) as AnyObject
+            p["$duration"] = Double(String(format: "%.3f", epochInterval - eventStartTime))
         }
-        p["distinct_id"] = distinctId as AnyObject
+        p["distinct_id"] = distinctId
         p += superProperties
         if let properties = properties {
             p += properties
         }
 
-        let trackEvent: Properties = ["event": ev! as AnyObject, "properties": p as AnyObject]
+        let trackEvent: InternalProperties = ["event": ev!, "properties": p]
         eventsQueue.append(trackEvent)
 
         if eventsQueue.count > QueueConstants.queueSize {
@@ -78,15 +59,15 @@ class Track {
         }
     }
 
-    func registerSuperProperties(_ properties: Properties, superProperties: inout Properties) {
-        Track.assertPropertyTypes(properties)
+    func registerSuperProperties(_ properties: Properties, superProperties: inout InternalProperties) {
+        assertPropertyTypes(properties)
         superProperties += properties
     }
 
     func registerSuperPropertiesOnce(_ properties: Properties,
-                                     superProperties: inout Properties,
-                                     defaultValue: AnyObject?) {
-        Track.assertPropertyTypes(properties)
+                                     superProperties: inout InternalProperties,
+                                     defaultValue: MixpanelType?) {
+        assertPropertyTypes(properties)
             _ = properties.map() {
                 let val = superProperties[$0.key]
                 if val == nil ||
@@ -96,23 +77,23 @@ class Track {
             }
     }
 
-    func unregisterSuperProperty(_ propertyName: String, superProperties: inout Properties) {
+    func unregisterSuperProperty(_ propertyName: String, superProperties: inout InternalProperties) {
         superProperties.removeValue(forKey: propertyName)
     }
 
-    func clearSuperProperties(_ superProperties: inout Properties) {
+    func clearSuperProperties(_ superProperties: inout InternalProperties) {
         superProperties.removeAll()
     }
 
-    func time(event: String?, timedEvents: inout Properties, startTime: Double) {
+    func time(event: String?, timedEvents: inout InternalProperties, startTime: Double) {
         guard let event = event, !event.isEmpty else {
             Logger.error(message: "mixpanel cannot time an empty event")
             return
         }
-        timedEvents[event] = startTime as AnyObject
+        timedEvents[event] = startTime
     }
 
-    func clearTimedEvents(_ timedEvents: inout Properties) {
+    func clearTimedEvents(_ timedEvents: inout InternalProperties) {
         timedEvents.removeAll()
     }
 }

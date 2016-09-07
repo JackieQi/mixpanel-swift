@@ -27,7 +27,7 @@ let kDefaultServerEngageString = "https://api.mixpanel.com/engage/"
 
 extension XCTestCase {
 
-    func XCTExpectAssert(_ expectedMessage: String, file: StaticString = #file, line: UInt = #line, block: @noescape() -> ()) {
+    func XCTExpectAssert(_ expectedMessage: String, file: StaticString = #file, line: UInt = #line, block: () -> ()) {
         let exp = expectation(description: expectedMessage)
 
         Assertions.assertClosure = {

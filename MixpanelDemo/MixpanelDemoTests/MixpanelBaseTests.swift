@@ -49,12 +49,24 @@ class MixpanelBaseTests: XCTestCase, MixpanelDelegate {
         }
     }
 
+    func waitForAsyncTasks() {
+        var hasCompletedTask = false
+        DispatchQueue.main.async {
+            hasCompletedTask = true
+        }
+
+        let loopUntil = Date(timeIntervalSinceNow: 10)
+        while !hasCompletedTask && loopUntil.timeIntervalSinceNow > 0 {
+            RunLoop.current.run(mode: RunLoopMode.defaultRunLoopMode, before: loopUntil)
+        }
+    }
+
     func flushAndWaitForSerialQueue() {
         mixpanel.flush()
         waitForSerialQueue()
     }
 
-    func assertDefaultPeopleProperties(_ properties: Properties) {
+    func assertDefaultPeopleProperties(_ properties: InternalProperties) {
         XCTAssertNotNil(properties["$ios_device_model"], "missing $ios_device_model property")
         XCTAssertNotNil(properties["$ios_lib_version"], "missing $ios_lib_version property")
         XCTAssertNotNil(properties["$ios_version"], "missing $ios_version property")

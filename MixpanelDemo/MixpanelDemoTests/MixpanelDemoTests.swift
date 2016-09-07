@@ -69,7 +69,7 @@ class MixpanelDemoTests: MixpanelBaseTests {
                       "events should have been flushed")
 
         for i in 0..<60 {
-            mixpanel.track(event: "evemt \(i)")
+            mixpanel.track(event: "event \(i)")
         }
 
         flushAndWaitForSerialQueue()
@@ -83,13 +83,13 @@ class MixpanelDemoTests: MixpanelBaseTests {
 
         mixpanel.identify(distinctId: "d1")
         for i in 0..<50 {
-            mixpanel.people.set(property: "p1", to: "\(i)" as AnyObject)
+            mixpanel.people.set(property: "p1", to: "\(i)")
         }
 
         flushAndWaitForSerialQueue()
         XCTAssertTrue(mixpanel.people.peopleQueue.isEmpty, "people should have been flushed")
         for i in 0..<60 {
-            mixpanel.people.set(property: "p1", to: "\(i)" as AnyObject)
+            mixpanel.people.set(property: "p1", to: "\(i)")
         }
         flushAndWaitForSerialQueue()
         XCTAssertTrue(mixpanel.people.peopleQueue.isEmpty, "people should have been flushed")
@@ -131,18 +131,18 @@ class MixpanelDemoTests: MixpanelBaseTests {
         mixpanel.delegate = self
         var events = Queue()
         for i in 0..<5000 {
-            events.append(["i": i as AnyObject])
+            events.append(["i": i])
         }
         mixpanel.eventsQueue = events
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.count == 5000)
         for i in 0..<5 {
-            mixpanel.track(event: "event", properties: ["i": (5000 + i) as AnyObject])
+            mixpanel.track(event: "event", properties: ["i": 5000 + i])
         }
         waitForSerialQueue()
-        var e: Properties = mixpanel.eventsQueue.last!
+        var e: InternalProperties = mixpanel.eventsQueue.last!
         XCTAssertTrue(mixpanel.eventsQueue.count == 5000)
-        XCTAssertEqual(e["properties"]?["i"], 5004)
+        XCTAssertEqual((e["properties"] as? InternalProperties)?["i"] as? Int, 5004)
     }
 
     func testIdentify() {
@@ -159,10 +159,10 @@ class MixpanelDemoTests: MixpanelBaseTests {
             waitForSerialQueue()
             XCTAssertTrue(mixpanel.eventsQueue.count == 1,
                           "events should be sent right away with default distinct id")
-            XCTAssertEqual(mixpanel.eventsQueue.last?["properties"]?["distinct_id"],
+            XCTAssertEqual((mixpanel.eventsQueue.last?["properties"] as? InternalProperties)?["distinct_id"] as? String,
                            mixpanel.defaultDistinctId(),
                            "events should use default distinct id if none set")
-            mixpanel.people.set(property: "p1", to: "a" as AnyObject)
+            mixpanel.people.set(property: "p1", to: "a")
             waitForSerialQueue()
             XCTAssertTrue(mixpanel.people.peopleQueue.isEmpty,
                           "people records should go to unidentified queue before identify:")
@@ -185,10 +185,10 @@ class MixpanelDemoTests: MixpanelBaseTests {
                            kTestToken, "incorrect project token in people record")
             XCTAssertEqual(mixpanel.people.peopleQueue.last?["$distinct_id"] as? String,
                            distinctId, "distinct id not set properly on unidentified people record")
-            var p: Properties = mixpanel.people.peopleQueue.last?["$set"] as! Properties
+            var p: InternalProperties = mixpanel.people.peopleQueue.last?["$set"] as! InternalProperties
             XCTAssertEqual(p["p1"] as? String, "a", "custom people property not queued")
             assertDefaultPeopleProperties(p)
-            mixpanel.people.set(property: "p1", to: "a" as AnyObject)
+            mixpanel.people.set(property: "p1", to: "a")
             waitForSerialQueue()
             XCTAssertTrue(mixpanel.people.unidentifiedQueue.isEmpty,
                           "once idenitfy: is called, unidentified queue should be skipped")
@@ -196,8 +196,8 @@ class MixpanelDemoTests: MixpanelBaseTests {
                           "once identify: is called, records should go straight to main queue")
             mixpanel.track(event: "e2")
             waitForSerialQueue()
-            let newDistinctId = mixpanel.eventsQueue.last?["properties"]?["distinct_id"]
-            XCTAssertEqual(String(describing: newDistinctId), distinctId,
+            let newDistinctId = (mixpanel.eventsQueue.last?["properties"] as? InternalProperties)?["distinct_id"] as? String
+            XCTAssertEqual(newDistinctId, distinctId,
                            "events should use new distinct id after identify:")
             mixpanel.reset()
             waitForSerialQueue()
@@ -206,9 +206,9 @@ class MixpanelDemoTests: MixpanelBaseTests {
     func testTrackWithDefaultProperties() {
         mixpanel.track(event: "Something Happened")
         waitForSerialQueue()
-        var e: Properties = mixpanel.eventsQueue.last!
+        var e: InternalProperties = mixpanel.eventsQueue.last!
         XCTAssertEqual(e["event"] as? String, "Something Happened", "incorrect event name")
-        var p: Properties = e["properties"] as! Properties
+        var p: InternalProperties = e["properties"] as! InternalProperties
         XCTAssertNotNil(p["$app_build_number"], "$app_build_number not set")
         XCTAssertNotNil(p["$app_version_string"], "$app_version_string not set")
         XCTAssertNotNil(p["$lib_version"], "$lib_version not set")
@@ -226,13 +226,13 @@ class MixpanelDemoTests: MixpanelBaseTests {
 
     func testTrackWithCustomProperties() {
         let now = Date()
-        let p: Properties = ["string": "yello" as AnyObject,
-                             "number": 3 as AnyObject,
-                             "date": now as AnyObject,
-                             "$app_version": "override" as AnyObject]
+        let p: Properties = ["string": "yello",
+                             "number": 3,
+                             "date": now,
+                             "$app_version": "override"]
         mixpanel.track(event: "Something Happened", properties: p)
         waitForSerialQueue()
-        var props: Properties = mixpanel.eventsQueue.last?["properties"] as! Properties
+        var props: InternalProperties = mixpanel.eventsQueue.last?["properties"] as! InternalProperties
         XCTAssertEqual(props["string"] as? String, "yello")
         XCTAssertEqual(props["number"] as? Int, 3)
         XCTAssertEqual(props["date"] as? Date, now)
@@ -241,43 +241,43 @@ class MixpanelDemoTests: MixpanelBaseTests {
     }
 
     func testTrackWithCustomDistinctIdAndToken() {
-        let p: Properties = ["token": "t1" as AnyObject, "distinct_id": "d1" as AnyObject]
+        let p: Properties = ["token": "t1", "distinct_id": "d1"]
         mixpanel.track(event: "e1", properties: p)
         waitForSerialQueue()
-        let trackToken = mixpanel.eventsQueue.last?["properties"]?["token"]!
-        let trackDistinctId = mixpanel.eventsQueue.last?["properties"]?["distinct_id"]!
-        XCTAssertEqual(String(describing: trackToken), "t1", "user-defined distinct id not used in track.")
-        XCTAssertEqual(String(describing: trackDistinctId), "d1", "user-defined distinct id not used in track.")
+        let trackToken = (mixpanel.eventsQueue.last?["properties"] as? InternalProperties)?["token"] as? String
+        let trackDistinctId = (mixpanel.eventsQueue.last?["properties"] as? InternalProperties)?["distinct_id"] as? String
+        XCTAssertEqual(trackToken, "t1", "user-defined distinct id not used in track.")
+        XCTAssertEqual(trackDistinctId, "d1", "user-defined distinct id not used in track.")
     }
 
     func testRegisterSuperProperties() {
-        var p: Properties = ["p1": "a" as AnyObject, "p2": 3 as AnyObject, "p3": Date() as AnyObject]
+        var p: Properties = ["p1": "a", "p2": 3, "p3": Date()]
         mixpanel.registerSuperProperties(p)
         waitForSerialQueue()
         XCTAssertEqual(NSDictionary(dictionary: mixpanel.currentSuperProperties()),
                        NSDictionary(dictionary: p),
                        "register super properties failed")
-        p = ["p1": "b" as AnyObject]
+        p = ["p1": "b"]
         mixpanel.registerSuperProperties(p)
         waitForSerialQueue()
         XCTAssertEqual(mixpanel.currentSuperProperties()["p1"] as? String, "b",
                        "register super properties failed to overwrite existing value")
-        p = ["p4": "a" as AnyObject]
+        p = ["p4": "a"]
         mixpanel.registerSuperPropertiesOnce(p)
         waitForSerialQueue()
         XCTAssertEqual(mixpanel.currentSuperProperties()["p4"] as? String, "a",
                        "register super properties once failed first time")
-        p = ["p4": "b" as AnyObject]
+        p = ["p4": "b"]
         mixpanel.registerSuperPropertiesOnce(p)
         waitForSerialQueue()
         XCTAssertEqual(mixpanel.currentSuperProperties()["p4"] as? String, "a",
                        "register super properties once failed second time")
-        p = ["p4": "c" as AnyObject]
-        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "d" as AnyObject?)
+        p = ["p4": "c"]
+        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "d")
         waitForSerialQueue()
         XCTAssertEqual(mixpanel.currentSuperProperties()["p4"] as? String, "a",
                        "register super properties once with default value failed when no match")
-        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "a" as AnyObject?)
+        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "a")
         waitForSerialQueue()
         XCTAssertEqual(mixpanel.currentSuperProperties()["p4"] as? String, "c",
                        "register super properties once with default value failed when match")
@@ -294,14 +294,14 @@ class MixpanelDemoTests: MixpanelBaseTests {
     }
 
     func testInvalidPropertiesTrack() {
-        let p: Properties = ["data": Data() as AnyObject]
+        let p: Properties = ["data": [Data()]]
         XCTExpectAssert("property type should not be allowed") {
             mixpanel.track(event: "e1", properties: p)
         }
     }
 
     func testInvalidSuperProperties() {
-        let p: Properties = ["data": Data() as AnyObject]
+        let p: Properties = ["data": [Data()]]
         XCTExpectAssert("property type should not be allowed") {
             mixpanel.registerSuperProperties(p)
         }
@@ -309,7 +309,7 @@ class MixpanelDemoTests: MixpanelBaseTests {
             mixpanel.registerSuperPropertiesOnce(p)
         }
         XCTExpectAssert("property type should not be allowed") {
-            mixpanel.registerSuperPropertiesOnce(p, defaultValue: "v" as AnyObject?)
+            mixpanel.registerSuperPropertiesOnce(p, defaultValue: "v")
         }
     }
 
@@ -322,42 +322,42 @@ class MixpanelDemoTests: MixpanelBaseTests {
         let p: Properties = allPropertyTypes()
         mixpanel.registerSuperProperties(p)
         mixpanel.registerSuperPropertiesOnce(p)
-        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "v" as AnyObject?)
+        mixpanel.registerSuperPropertiesOnce(p, defaultValue: "v")
     }
 
     func testTrackLaunchOptions() {
-        let launchOptions: Properties = [UIApplicationLaunchOptionsKey.remoteNotification.rawValue: ["mp":
-            ["m": "the_message_id", "c": "the_campaign_id"]] as AnyObject]
+        let launchOptions: [UIApplicationLaunchOptionsKey: Any] = [UIApplicationLaunchOptionsKey.remoteNotification: ["mp":
+            ["m": "the_message_id", "c": "the_campaign_id"]]]
         mixpanel = Mixpanel.initialize(token: kTestToken,
-                                       launchOptions: launchOptions as [NSObject : AnyObject]?,
+                                       launchOptions: launchOptions,
                                        flushInterval: 60)
         waitForSerialQueue()
-        var e: Properties = mixpanel.eventsQueue.last!
+        var e: InternalProperties = mixpanel.eventsQueue.last!
         XCTAssertEqual(e["event"] as? String, "$app_open", "incorrect event name")
-        var p: Properties = e["properties"] as! Properties
+        var p: InternalProperties = e["properties"] as! InternalProperties
         XCTAssertEqual(p["campaign_id"] as? String, "the_campaign_id", "campaign_id not equal")
         XCTAssertEqual(p["message_id"] as? String, "the_message_id", "message_id not equal")
         XCTAssertEqual(p["message_type"] as? String, "push", "type does not equal inapp")
     }
 
     func testTrackPushNotification() {
-        mixpanel.trackPushNotification(["mp" as NSObject: ["m": "the_message_id", "c": "the_campaign_id"] as AnyObject])
+        mixpanel.trackPushNotification(["mp": ["m": "the_message_id", "c": "the_campaign_id"]])
         waitForSerialQueue()
-        var e: Properties = mixpanel.eventsQueue.last!
+        var e: InternalProperties = mixpanel.eventsQueue.last!
         XCTAssertEqual(e["event"] as? String, "$campaign_received", "incorrect event name")
-        var p: Properties = e["properties"] as! Properties
+        var p: InternalProperties = e["properties"] as! InternalProperties
         XCTAssertEqual(p["campaign_id"] as? String, "the_campaign_id", "campaign_id not equal")
         XCTAssertEqual(p["message_id"] as? String, "the_message_id", "message_id not equal")
         XCTAssertEqual(p["message_type"] as? String, "push", "type does not equal inapp")
     }
 
     func testTrackPushNotificationMalformed() {
-        mixpanel.trackPushNotification(["mp" as NSObject:
-            ["m": "the_message_id", "cid": "the_campaign_id"]  as AnyObject])
+        mixpanel.trackPushNotification(["mp":
+            ["m": "the_message_id", "cid": "the_campaign_id"]])
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.isEmpty,
                       "Invalid push notification was incorrectly queued.")
-        mixpanel.trackPushNotification(["mp" as NSObject: 1 as AnyObject])
+        mixpanel.trackPushNotification(["mp": 1])
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.isEmpty,
                       "Invalid push notification was incorrectly queued.")
@@ -365,7 +365,7 @@ class MixpanelDemoTests: MixpanelBaseTests {
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.isEmpty,
                       "Invalid push notification was incorrectly queued.")
-        mixpanel.trackPushNotification(["mp" as NSObject: "bad value" as AnyObject])
+        mixpanel.trackPushNotification(["mp": "bad value"])
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.isEmpty,
                       "Invalid push notification was incorrectly queued.")
@@ -377,7 +377,7 @@ class MixpanelDemoTests: MixpanelBaseTests {
     func testReset() {
         mixpanel.identify(distinctId: "d1")
         mixpanel.track(event: "e1")
-        let p: Properties = ["p1": "a" as AnyObject]
+        let p: Properties = ["p1": "a"]
         mixpanel.registerSuperProperties(p)
         mixpanel.people.set(properties: p)
         mixpanel.archive()
@@ -415,12 +415,12 @@ class MixpanelDemoTests: MixpanelBaseTests {
         XCTAssertTrue(mixpanel.eventsQueue.isEmpty, "default events queue archive failed")
         XCTAssertNil(mixpanel.people.distinctId, "default people distinct id archive failed")
         XCTAssertTrue(mixpanel.people.peopleQueue.isEmpty, "default people queue archive failed")
-        let p: Properties = ["p1": "a" as AnyObject]
+        let p: Properties = ["p1": "a"]
         mixpanel.identify(distinctId: "d1")
         mixpanel.registerSuperProperties(p)
         mixpanel.track(event: "e1")
         mixpanel.people.set(properties: p)
-        mixpanel.timedEvents["e2"] = 5.0 as AnyObject
+        mixpanel.timedEvents["e2"] = 5.0
         waitForSerialQueue()
         mixpanel.archive()
         mixpanel = Mixpanel.initialize(token: kTestToken, launchOptions: nil, flushInterval: 60)
@@ -503,7 +503,7 @@ class MixpanelDemoTests: MixpanelBaseTests {
         mixpanel.delegate = self
         mixpanel.identify(distinctId: "d1")
         mixpanel.track(event: "e1")
-        mixpanel.people.set(property: "p1", to: "a" as AnyObject)
+        mixpanel.people.set(property: "p1", to: "a")
         mixpanel.flush()
         waitForSerialQueue()
         XCTAssertTrue(mixpanel.eventsQueue.count == 1, "delegate should have stopped flush")
@@ -513,24 +513,24 @@ class MixpanelDemoTests: MixpanelBaseTests {
     func testEventTiming() {
         mixpanel.track(event: "Something Happened")
         waitForSerialQueue()
-        var e: Properties = mixpanel.eventsQueue.last!
-        var p = e["properties"] as! Properties
+        var e: InternalProperties = mixpanel.eventsQueue.last!
+        var p = e["properties"] as! InternalProperties
         XCTAssertNil(p["$duration"], "New events should not be timed.")
         mixpanel.time(event: "400 Meters")
         mixpanel.track(event: "500 Meters")
         waitForSerialQueue()
         e = mixpanel.eventsQueue.last!
-        p = e["properties"] as! Properties
+        p = e["properties"] as! InternalProperties
         XCTAssertNil(p["$duration"], "The exact same event name is required for timing.")
         mixpanel.track(event: "400 Meters")
         waitForSerialQueue()
         e = mixpanel.eventsQueue.last!
-        p = e["properties"] as! Properties
+        p = e["properties"] as! InternalProperties
         XCTAssertNotNil(p["$duration"], "This event should be timed.")
         mixpanel.track(event: "400 Meters")
         waitForSerialQueue()
         e = mixpanel.eventsQueue.last!
-        p = e["properties"] as! Properties
+        p = e["properties"] as! InternalProperties
         XCTAssertNil(p["$duration"],
                      "Tracking the same event should require a second call to timeEvent.")
     }
@@ -557,25 +557,31 @@ class MixpanelDemoTests: MixpanelBaseTests {
         stubTrack()
         stubEngage()
         let p = ["property": ["p": [Data()]]]
-        mixpanel.track(event: "test", properties: p as Properties?)
+        mixpanel.track(event: "test", properties: p)
         mixpanel.identify(distinctId: "1234")
-        mixpanel.people.set(properties: p as Properties)
+        mixpanel.people.set(properties: p)
         flushAndWaitForSerialQueue()
     }
 
     func testUnexpectedBeahviours() {
         stubEngage()
         mixpanel.identify(distinctId: "1234")
-        mixpanel.people.set(properties: ["p1": "string type" as AnyObject])
+        mixpanel.people.set(properties: ["p1": "string type"])
         flushAndWaitForSerialQueue()
 
         mixpanel.people.increment(property: "p1", by: 2.3)
         flushAndWaitForSerialQueue()
 
-        mixpanel.people.union(properties: ["p1": ["unioned item"] as AnyObject])
+        mixpanel.people.union(properties: ["p1": ["unioned item"]])
         flushAndWaitForSerialQueue()
 
-        mixpanel.people.append(properties: ["p1": "appended item" as AnyObject])
+        mixpanel.people.append(properties: ["p1": "appended item"])
         flushAndWaitForSerialQueue()
+    }
+
+    func testUnexpectedTypes() {
+        stubTrack()
+        mixpanel.identify(distinctId: "1234")
+        mixpanel.track(event: "lol", properties: ["hehe1": Date()])
     }
 }
